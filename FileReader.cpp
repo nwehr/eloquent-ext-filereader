@@ -127,6 +127,8 @@ void Eloquent::FileReader::ReadStream( bool i_Filter ){
 void Eloquent::FileReader::MonitorINotify() {
 #if defined( __linux__ )
 	try {
+		boost::optional<std::string> Filter = m_Config.second.get_optional<std::string>( "filter" );
+
 		int fd = inotify_init();
 		int dwd = inotify_add_watch( fd, m_FilePath.parent_path().string().c_str(), IN_CREATE );
 		int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
@@ -144,12 +146,11 @@ void Eloquent::FileReader::MonitorINotify() {
 				struct inotify_event* Event = (inotify_event*)( &Buffer[i] );
 				
 				if( Event->mask & IN_MODIFY ) {
-					ReadStream( false );
+					ReadStream( Filter.is_initialized() );
 					
 				} else if( Event->mask & IN_MOVE_SELF ) {
 					if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
 						if( !FileRenamed ) {
-							std::cout << "File: " << m_FilePath.filename().c_str() << " was renamed" << std::endl;
 							inotify_rm_watch( fd, fwd );
 							m_FileStream.close();
 							FileRenamed = true;
@@ -160,7 +161,6 @@ void Eloquent::FileReader::MonitorINotify() {
 				} else if( Event->mask & IN_CREATE ) {
 					if( FileRenamed ) {
 						if( std::string( Event->name ) == m_FilePath.filename() ) {
-							std::cout << "Reattching watch mask to: " << Event->name << std::endl;
 							fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
 							m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
 							m_FileStream.seekg( 0, m_FileStream.beg );
@@ -201,34 +201,45 @@ void Eloquent::FileReader::MonitorKQueue() {
 	
 	while( true ) {
 		try {
-			int fd, kq, ev;
-			
-			kq = kqueue();
-			fd = open( m_FilePath.string().data(), O_RDONLY );
-			
+			int dd, kq, ev;
 			struct kevent ChangeList;
 			struct kevent EventList;
 			
-			EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB, 0, 0 );
-			
-			while( true ){
-				ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
+			kq = kqueue();
+
+			while( true ) {
+				int fd = open( m_FilePath.string().data(), O_RDONLY );
 				
-				if( ev == -1 ) {
-					std::unique_lock<std::mutex> Lock( m_LogMutex );
-					m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
+				EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
+				
+				while( true ){
+					ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
 					
-				} else if( ev > 0 ) {
-					if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
-						ReadStream( Filter.is_initialized() );
+					if( ev == -1 ) {
+						std::unique_lock<std::mutex> Lock( m_LogMutex );
+						m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
+						
+					} else if( ev > 0 ) {
+						if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
+							ReadStream( Filter.is_initialized() );
+						} else if( EventList.fflags & NOTE_RENAME ) {
+							if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+								break;
+							}
+						}
+						
 					}
 					
 				}
-				
+				m_FileStream.close();
+				m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
+				m_FileStream.seekg( 0, m_FileStream.beg );
+
+				close( fd );
+
 			}
 			
 			close( kq );
-			close( fd );
 			
 			if( m_FileStream.is_open() )
 				m_FileStream.close();
