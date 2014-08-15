@@ -136,12 +136,6 @@ void Eloquent::FileReader::MonitorINotify() {
 		while( true ){
 			//boost::this_thread::interruption_point();
 			
-			if( !m_FileStream.is_open() ) {
-				if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-					m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in | std::ifstream::ate );
-				}
-			}
-			
 			char Buffer[4096] = { "" };
 			
 			int NumEvents = read( fd, Buffer, sizeof( Buffer ) );
@@ -168,6 +162,8 @@ void Eloquent::FileReader::MonitorINotify() {
 						if( std::string( Event->name ) == m_FilePath.filename() ) {
 							std::cout << "Reattching watch mask to: " << Event->name << std::endl;
 							fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
+							m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
+							m_FileStream.seekg( 0, m_FileStream.beg );
 							FileRenamed = false;
 						}
 					}
