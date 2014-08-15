@@ -201,6 +201,8 @@ void Eloquent::FileReader::MonitorKQueue() {
 	
 	while( true ) {
 		try {
+			bool FileRenamed( false );
+
 			int dd, kq, ev;
 			struct kevent ChangeList;
 			struct kevent EventList;
@@ -208,34 +210,40 @@ void Eloquent::FileReader::MonitorKQueue() {
 			kq = kqueue();
 
 			while( true ) {
-				int fd = open( m_FilePath.string().data(), O_RDONLY );
-				
-				EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
-				
-				while( true ){
-					ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
-					
-					if( ev == -1 ) {
-						std::unique_lock<std::mutex> Lock( m_LogMutex );
-						m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
+				if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+					if( FileRenamed ) {
+						m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::In );
+						m_FileStream.seekg( 0, m_FileStream.beg );
+						FileRenamed = false;
+					}
+
+					int fd = open( m_FilePath.string().data(), O_RDONLY );
+
+					EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
+					while( true ){
+						ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
 						
-					} else if( ev > 0 ) {
-						if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
-							ReadStream( Filter.is_initialized() );
-						} else if( EventList.fflags & NOTE_RENAME ) {
-							if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-								break;
+						if( ev == -1 ) {
+							std::unique_lock<std::mutex> Lock( m_LogMutex );
+							m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
+							
+						} else if( ev > 0 ) {
+							if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
+								ReadStream( Filter.is_initialized() );
+							} else if( EventList.fflags & NOTE_RENAME ) {
+								if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+									break;
+								}
 							}
+							
 						}
 						
 					}
-					
 				}
+				
 				m_FileStream.close();
-				m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
-				m_FileStream.seekg( 0, m_FileStream.beg );
-
 				close( fd );
+				FileRenamed = true;
 
 			}
 			
@@ -246,7 +254,7 @@ void Eloquent::FileReader::MonitorKQueue() {
 			
 		} catch( const std::exception& e ){
 			std::unique_lock<std::mutex> Lock( m_LogMutex );
-			m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - std::exception" << std::endl;
+			m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - " << e.what() << std::endl;
 			
 		} catch( ... ) {
 			std::unique_lock<std::mutex> Lock( m_LogMutex );
