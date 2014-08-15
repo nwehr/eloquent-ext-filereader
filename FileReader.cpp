@@ -212,7 +212,7 @@ void Eloquent::FileReader::MonitorKQueue() {
 			while( true ) {
 				if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
 					if( FileRenamed ) {
-						m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::In );
+						m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
 						m_FileStream.seekg( 0, m_FileStream.beg );
 						FileRenamed = false;
 					}
@@ -220,6 +220,7 @@ void Eloquent::FileReader::MonitorKQueue() {
 					int fd = open( m_FilePath.string().data(), O_RDONLY );
 
 					EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
+					
 					while( true ){
 						ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
 						
@@ -239,11 +240,13 @@ void Eloquent::FileReader::MonitorKQueue() {
 						}
 						
 					}
+					
+					m_FileStream.close();
+					close( fd );
+					
+					FileRenamed = true;
+					
 				}
-				
-				m_FileStream.close();
-				close( fd );
-				FileRenamed = true;
 
 			}
 			
