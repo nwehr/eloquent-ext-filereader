@@ -8,15 +8,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // FileReaderFactory : IOExtensionFactory
 ///////////////////////////////////////////////////////////////////////////////
-Eloquent::FileReaderFactory::FileReaderFactory( const std::string& i_Name
-											   , const std::string& i_Version
-											   , const std::string& i_Author
-											   , const std::string& i_Type
-											   , const std::vector<std::string>& i_Keys )
-: IOExtensionFactory( i_Name, i_Version, i_Author, i_Type, i_Keys )
-{}
-
-Eloquent::FileReaderFactory::~FileReaderFactory(){}
+Eloquent::FileReaderFactory::FileReaderFactory() {}
+Eloquent::FileReaderFactory::~FileReaderFactory() {}
 
 Eloquent::IOExtension* Eloquent::FileReaderFactory::New( const boost::property_tree::ptree::value_type& i_Config
 														, std::mutex& i_LogMutex

@@ -22,14 +22,8 @@ namespace Eloquent {
 	// FileReaderFactory : IOExtensionFactory
 	///////////////////////////////////////////////////////////////////////////////
 	class FileReaderFactory : public IOExtensionFactory {
-		FileReaderFactory();
 	public:
-		explicit FileReaderFactory( const std::string& i_Name
-								   , const std::string& i_Version
-								   , const std::string& i_Author
-								   , const std::string& i_Type
-								   , const std::vector<std::string>& i_Keys );
-		
+		FileReaderFactory();
 		virtual ~FileReaderFactory();
 		
 		virtual IOExtension* New( const boost::property_tree::ptree::value_type& i_Config
