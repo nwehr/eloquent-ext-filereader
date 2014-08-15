@@ -46,6 +46,7 @@ namespace Eloquent {
 
 	private:
 		// File Location/Data
+		boost::filesystem::path m_FilePathDirectory;
 		boost::filesystem::path m_FilePath;
 		std::ifstream 			m_FileStream;
 		

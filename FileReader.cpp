@@ -37,6 +37,7 @@ Eloquent::FileReader::FileReader( const boost::property_tree::ptree::value_type&
 								 , std::queue<QueueItem>& i_Queue
 								 , int& i_NumWriters )
 : IOExtension( i_Config, i_LogMutex, i_Log, i_QueueMutex, i_QueueCV, i_Queue, i_NumWriters )
+, m_FilePathDirectory( m_Config.second.get<std::string>( "directory" ) )
 , m_FilePath( m_Config.second.get<std::string>( "path" ) )
 , m_FileStream()
 , m_Pos()
@@ -64,9 +65,9 @@ void Eloquent::FileReader::ReadStream( bool i_Filter ){
 		
 		m_FileStream.seekg( m_Pos );
 		
-		if( !m_FileStream.good() )
+		if( !m_FileStream.good() ) 
 			m_FileStream.seekg( 0, m_FileStream.beg );
-		
+
 		std::stringstream Buffer;
 		
 		while( m_FileStream.good() ) {
@@ -130,13 +131,19 @@ void Eloquent::FileReader::MonitorINotify() {
 #if defined( __linux__ )
 	try {
 		int fd = inotify_init();
-		int wd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY );
-		
+		int dwd = inotify_add_watch( fd, m_FilePathDirectory.string().c_str(), IN_CREATE );
+		int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
+
+		bool FileRenamed( false );
+
 		while( true ){
 			//boost::this_thread::interruption_point();
 			
-			if( !m_FileStream.is_open() )
-				m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in | std::ifstream::ate );
+			if( !m_FileStream.is_open() ) {
+				if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+					m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in | std::ifstream::ate );
+				}
+			}
 			
 			char Buffer[DEFAULT_MKFT_LINUX_BUFFER_SIZE] = "";
 			
@@ -147,13 +154,35 @@ void Eloquent::FileReader::MonitorINotify() {
 				
 				if( Event->mask & IN_MODIFY ) {
 					ReadStream( false );
+					
+				} else if( Event->mask & IN_MOVE_SELF ) {
+					if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+						if( !FileRenamed ) {
+							std::cout << "File: " << m_FilePath.filename().c_str() << " was renamed" << std::endl;
+							inotify_rm_watch( fd, fwd );
+							m_FileStream.close();
+							FileRenamed = true;
+
+						}
+					}
+						
+				} else if( Event->mask & IN_CREATE ) {
+					if( FileRenamed ) {
+						if( std::string( Event->name ) == m_FilePath.filename() ) {
+							std::cout << "Reattching watch mask to: " << Event->name << std::endl;
+							fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
+							FileRenamed = false;
+						}
+					}
+
 				}
 				
 			}
 			
 		}
-		
-		close( wd );
+
+		close( dwd );
+		close( fwd );
 		close( fd );
 		
 		if( m_FileStream.is_open() )
@@ -161,7 +190,7 @@ void Eloquent::FileReader::MonitorINotify() {
 		
 	} catch( const std::exception& e ){
 		std::unique_lock<std::mutex> Lock( m_LogMutex );
-		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - std::exception" << std::endl;
+		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - " << e.what() << std::endl;
 	} catch( ... ) {
 		std::unique_lock<std::mutex> Lock( m_LogMutex );
 		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - unknown exception" << std::endl;
