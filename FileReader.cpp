@@ -211,42 +211,40 @@ void Eloquent::FileReader::MonitorKQueue() {
 
 			while( true ) {
 				if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-					int fd = open( m_FilePath.string().data(), O_RDONLY );
-
-					EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
-
 					if( FileRenamed ) {
 						m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::In );
 						m_FileStream.seekg( 0, m_FileStream.beg );
 						FileRenamed = false;
 					}
-				} else {
-					throw std::runtime_exception( "File does not exist" );
-				}
-				
-				while( true ){
-					ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
-					
-					if( ev == -1 ) {
-						std::unique_lock<std::mutex> Lock( m_LogMutex );
-						m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
+
+					int fd = open( m_FilePath.string().data(), O_RDONLY );
+
+					EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
+					while( true ){
+						ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
 						
-					} else if( ev > 0 ) {
-						if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
-							ReadStream( Filter.is_initialized() );
-						} else if( EventList.fflags & NOTE_RENAME ) {
-							if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-								break;
+						if( ev == -1 ) {
+							std::unique_lock<std::mutex> Lock( m_LogMutex );
+							m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
+							
+						} else if( ev > 0 ) {
+							if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
+								ReadStream( Filter.is_initialized() );
+							} else if( EventList.fflags & NOTE_RENAME ) {
+								if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+									break;
+								}
 							}
+							
 						}
 						
 					}
-					
 				}
+				
 				m_FileStream.close();
-
 				close( fd );
 				FileRenamed = true;
+
 			}
 			
 			close( kq );
