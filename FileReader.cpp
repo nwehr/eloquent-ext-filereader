@@ -10,8 +10,6 @@
 #include <stdlib.h>
 
 #if defined( __linux__ )
-	#define DEFAULT_MKFT_LINUX_BUFFER_SIZE 16384
-
 	#include <sys/select.h>
 	#include <sys/inotify.h>
 #else
@@ -23,7 +21,7 @@
 #include <string>
 
 // Internal
-#include "Eloquent/Global/Logging.h"
+#include "Eloquent/Logging.h"
 #include "FileReader.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -37,7 +35,6 @@ Eloquent::FileReader::FileReader( const boost::property_tree::ptree::value_type&
 								 , std::queue<QueueItem>& i_Queue
 								 , int& i_NumWriters )
 : IOExtension( i_Config, i_LogMutex, i_Log, i_QueueMutex, i_QueueCV, i_Queue, i_NumWriters )
-, m_FilePathDirectory( m_Config.second.get<std::string>( "directory" ) )
 , m_FilePath( m_Config.second.get<std::string>( "path" ) )
 , m_FileStream()
 , m_Pos()
@@ -131,7 +128,7 @@ void Eloquent::FileReader::MonitorINotify() {
 #if defined( __linux__ )
 	try {
 		int fd = inotify_init();
-		int dwd = inotify_add_watch( fd, m_FilePathDirectory.string().c_str(), IN_CREATE );
+		int dwd = inotify_add_watch( fd, m_FilePath.parent_path().string().c_str(), IN_CREATE );
 		int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
 
 		bool FileRenamed( false );
@@ -145,7 +142,7 @@ void Eloquent::FileReader::MonitorINotify() {
 				}
 			}
 			
-			char Buffer[DEFAULT_MKFT_LINUX_BUFFER_SIZE] = "";
+			char Buffer[4096] = { "" };
 			
 			int NumEvents = read( fd, Buffer, sizeof( Buffer ) );
 			

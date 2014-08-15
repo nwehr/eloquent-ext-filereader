@@ -11,7 +11,6 @@
 
 // Boost
 #include <boost/filesystem.hpp>
-
 #include <boost/property_tree/ptree.hpp>
 
 // External
@@ -46,7 +45,6 @@ namespace Eloquent {
 
 	private:
 		// File Location/Data
-		boost::filesystem::path m_FilePathDirectory;
 		boost::filesystem::path m_FilePath;
 		std::ifstream 			m_FileStream;
 		

@@ -12,11 +12,10 @@
 
 // Boost
 #include <boost/property_tree/ptree.hpp>
-#include <boost/thread.hpp>
-#include <boost/smart_ptr.hpp>
 
 // Internal
-#include "Eloquent/Extensions/IOExtensionFactory.h"
+#include "FileReader.h"
+#include "Eloquent/Extensions/Factories/IOExtensionFactory.h"
 
 namespace Eloquent {
 	///////////////////////////////////////////////////////////////////////////////
