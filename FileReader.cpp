@@ -138,7 +138,7 @@ void Eloquent::FileReader::MonitorINotify() {
 		while( true ){
 			//boost::this_thread::interruption_point();
 			
-			char Buffer[4096] = { "" };
+			char Buffer[4096];
 			
 			int NumEvents = read( fd, Buffer, sizeof( Buffer ) );
 			
@@ -162,10 +162,15 @@ void Eloquent::FileReader::MonitorINotify() {
 					if( FileRenamed ) {
 						if( std::string( Event->name ) == m_FilePath.filename() ) {
 							fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
+
 							m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
 							m_FileStream.seekg( 0, m_FileStream.beg );
+							m_Pos = m_FileStream.tellg();
+
 							FileRenamed = false;
+
 						}
+
 					}
 
 				}
@@ -214,6 +219,7 @@ void Eloquent::FileReader::MonitorKQueue() {
 					if( FileRenamed ) {
 						m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
 						m_FileStream.seekg( 0, m_FileStream.beg );
+						m_Pos = m_FileStream.tellg();
 						FileRenamed = false;
 					}
 
@@ -235,6 +241,7 @@ void Eloquent::FileReader::MonitorKQueue() {
 								if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
 									break;
 								}
+								
 							}
 							
 						}
