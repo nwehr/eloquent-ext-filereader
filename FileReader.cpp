@@ -80,12 +80,14 @@ void Eloquent::FileReader::ReadStream( bool i_Filter ){
 		
 		m_Pos = m_FileStream.tellg();
 		
-		std::unique_lock<std::mutex> QueueLock( m_QueueMutex );
-		
 		if( i_Filter ) {
+			std::unique_lock<std::mutex> QueueLock( m_QueueMutex );
 			m_Queue.push( QueueItem( m_FilterCoordinator->FilterData( Buffer.str() ), (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
+			
 		} else {
+			std::unique_lock<std::mutex> QueueLock( m_QueueMutex );
 			m_Queue.push( QueueItem( Buffer.str(), (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
+			
 		}
 		
 		m_QueueCV.notify_one();
