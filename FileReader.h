@@ -17,13 +17,13 @@
 #include <streamlog/streamlog.h>
 
 // Internal
-#include "Eloquent/Extensions/IOExtension.h"
+#include "Eloquent/Extensions/IO/IO.h"
 
 namespace Eloquent {
 	///////////////////////////////////////////////////////////////////////////////
 	// FileReader : IOExtension
 	///////////////////////////////////////////////////////////////////////////////
-	class FileReader : public IOExtension {
+	class FileReader : public IO {
 		FileReader();
 	public:
 		explicit FileReader( const boost::property_tree::ptree::value_type& i_Config
@@ -36,7 +36,7 @@ namespace Eloquent {
 
 		virtual ~FileReader();
 		
-		void ReadStream( bool );
+		void ReadStream();
 		
 		void MonitorINotify();
 		void MonitorKQueue();

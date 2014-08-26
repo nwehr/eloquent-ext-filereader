@@ -15,18 +15,18 @@
 
 // Internal
 #include "FileReader.h"
-#include "Eloquent/Extensions/Factories/IOExtensionFactory.h"
+#include "Eloquent/Extensions/IO/IOFactory.h"
 
 namespace Eloquent {
 	///////////////////////////////////////////////////////////////////////////////
 	// FileReaderFactory : IOExtensionFactory
 	///////////////////////////////////////////////////////////////////////////////
-	class FileReaderFactory : public IOExtensionFactory {
+	class FileReaderFactory : public IOFactory {
 	public:
 		FileReaderFactory();
 		virtual ~FileReaderFactory();
 		
-		virtual IOExtension* New( const boost::property_tree::ptree::value_type& i_Config
+		virtual IO* New( const boost::property_tree::ptree::value_type& i_Config
 								 , std::mutex& i_LogMutex
 								 , streamlog::severity_log& i_Log
 								 , std::mutex& i_QueueMutex

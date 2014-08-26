@@ -8,17 +8,22 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctime>
 
 #if defined( __linux__ )
 	#include <sys/select.h>
 	#include <sys/inotify.h>
 #else
+	#include <string.h>
+	#include <errno.h>
+
 	#include <sys/event.h>
 	#include <sys/time.h>
 #endif // defined( __linux__ )
 
 // C++
 #include <string>
+#include <iostream>
 
 // Internal
 #include "Eloquent/Logging.h"
@@ -34,7 +39,7 @@ Eloquent::FileReader::FileReader( const boost::property_tree::ptree::value_type&
 								 , std::condition_variable& i_QueueCV
 								 , std::queue<QueueItem>& i_Queue
 								 , int& i_NumWriters )
-: IOExtension( i_Config, i_LogMutex, i_Log, i_QueueMutex, i_QueueCV, i_Queue, i_NumWriters )
+: IO( i_Config, i_LogMutex, i_Log, i_QueueMutex, i_QueueCV, i_Queue, i_NumWriters )
 , m_FilePath( m_Config.second.get<std::string>( "path" ) )
 , m_FileStream()
 , m_Pos()
@@ -43,17 +48,17 @@ Eloquent::FileReader::FileReader( const boost::property_tree::ptree::value_type&
 	m_Pos = m_FileStream.tellg();
 	
 	std::unique_lock<std::mutex> Lock( m_LogMutex );
-	m_Log( Eloquent::LogSeverity::SEV_INFO ) << "FileReader::FileReader() - info - setting up a reader for " << m_FilePath.string() << std::endl;
+	m_Log( Eloquent::LogSeverity::SEV_INFO ) << TimeAndSpace() << "setting up a reader for " << m_FilePath.string() << " #Comment #Filesystem #Reader #FileReader" << std::endl;
 	
 }
 
 Eloquent::FileReader::~FileReader(){
 	std::unique_lock<std::mutex> Lock( m_LogMutex );
-	m_Log( Eloquent::LogSeverity::SEV_INFO ) << "FileReader::~FileReader() - info - shutting down a reader for " << m_FilePath.string() << std::endl;
+	m_Log( Eloquent::LogSeverity::SEV_INFO ) << TimeAndSpace() << "shutting down a reader for " << m_FilePath.string() << " #Comment #Filesystem #Reader #FileReader" << std::endl;
 		
 }
 
-void Eloquent::FileReader::ReadStream( bool i_Filter ){
+void Eloquent::FileReader::ReadStream(){
 	try {
 		if( !m_FileStream.is_open() ){
 			m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::binary | std::ifstream::ate );
@@ -80,17 +85,7 @@ void Eloquent::FileReader::ReadStream( bool i_Filter ){
 		
 		m_Pos = m_FileStream.tellg();
 		
-		if( i_Filter ) {
-			std::unique_lock<std::mutex> QueueLock( m_QueueMutex );
-			m_Queue.push( QueueItem( m_FilterCoordinator->FilterData( Buffer.str() ), (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
-			
-		} else {
-			std::unique_lock<std::mutex> QueueLock( m_QueueMutex );
-			m_Queue.push( QueueItem( Buffer.str(), (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
-			
-		}
-		
-		m_QueueCV.notify_one();
+		PushQueueItem( QueueItem( Buffer.str(), (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
 		
 //		std::cout << "streampos: " << m_FileStream.tellg() << std::endl;
 		
@@ -120,7 +115,7 @@ void Eloquent::FileReader::ReadStream( bool i_Filter ){
 		
 	} catch( const std::exception& e ){
 		std::unique_lock<std::mutex> Lock( m_LogMutex );
-		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - " << e.what() << std::endl;
+		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << TimeAndSpace() << e.what() << " #Error #Reader #FileReader" << std::endl;
 		
 	}
 	
@@ -129,8 +124,6 @@ void Eloquent::FileReader::ReadStream( bool i_Filter ){
 void Eloquent::FileReader::MonitorINotify() {
 #if defined( __linux__ )
 	try {
-		boost::optional<std::string> Filter = m_Config.second.get_optional<std::string>( "filter" );
-
 		int fd = inotify_init();
 		int dwd = inotify_add_watch( fd, m_FilePath.parent_path().string().c_str(), IN_CREATE );
 		int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
@@ -148,7 +141,7 @@ void Eloquent::FileReader::MonitorINotify() {
 				struct inotify_event* Event = (inotify_event*)( &Buffer[i] );
 				
 				if( Event->mask & IN_MODIFY ) {
-					ReadStream( Filter.is_initialized() );
+					ReadStream();
 					
 				} else if( Event->mask & IN_MOVE_SELF ) {
 					if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
@@ -190,10 +183,10 @@ void Eloquent::FileReader::MonitorINotify() {
 		
 	} catch( const std::exception& e ){
 		std::unique_lock<std::mutex> Lock( m_LogMutex );
-		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - " << e.what() << std::endl;
+		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << TimeAndSpace() << e.what() << " #Error #Reader #FileReader" << std::endl;
 	} catch( ... ) {
 		std::unique_lock<std::mutex> Lock( m_LogMutex );
-		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - unknown exception" << std::endl;
+		m_Log( Eloquent::LogSeverity::SEV_ERROR ) << TimeAndSpace() << "unknown exception #Error #Attention #Reader #FileReader" << std::endl;
 	}
 	
 #endif
@@ -202,49 +195,53 @@ void Eloquent::FileReader::MonitorINotify() {
 
 void Eloquent::FileReader::MonitorKQueue() {
 #if !defined( __linux__ )
-	boost::optional<std::string> Filter = m_Config.second.get_optional<std::string>( "filter" );
-	
 	int NumEvents = 0;
 	
 	while( true ) {
 		try {
-			bool FileRenamed( false );
-
 			int dd, kq, ev;
 			struct kevent ChangeList;
 			struct kevent EventList;
 			
 			kq = kqueue();
+			
+			bool Renamed = false;
 
 			while( true ) {
 				if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-					if( FileRenamed ) {
+					
+					if( Renamed ) {
 						m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
-						m_FileStream.seekg( 0, m_FileStream.beg );
+						
 						m_Pos = m_FileStream.tellg();
-						FileRenamed = false;
+						
+						Renamed = false;
+						
 					}
 
 					int fd = open( m_FilePath.string().data(), O_RDONLY );
 
-					EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_DELETE | NOTE_EXTEND | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME, 0, 0 );
+					EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_EXTEND | NOTE_WRITE | NOTE_RENAME, 0, 0 );
 					
 					while( true ){
-						ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL );
-						
-						if( ev == -1 ) {
-							std::unique_lock<std::mutex> Lock( m_LogMutex );
-							m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - kqueue error" << std::endl;
-							
-						} else if( ev > 0 ) {
+						if( (ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL )) > 0 ) {
 							if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
-								ReadStream( Filter.is_initialized() );
-							} else if( EventList.fflags & NOTE_RENAME ) {
-								if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-									break;
-								}
+								ReadStream();
+							}
+							
+							if( EventList.fflags & NOTE_RENAME ) {
+								std::unique_lock<std::mutex> Lock( m_LogMutex );
+								m_Log( Eloquent::LogSeverity::SEV_INFO ) << TimeAndSpace() << m_FilePath.string() << " renamed. assumed rotation. #Comment #Reader #FileReader" << std::endl;
+								
+								Renamed = true;
+								
+								break;
 								
 							}
+							
+						} else {
+							std::unique_lock<std::mutex> Lock( m_LogMutex );
+							m_Log( Eloquent::LogSeverity::SEV_ERROR ) << TimeAndSpace() << std::string( strerror( errno ) ) << " #Error #Reader #FileReader" << std::endl;
 							
 						}
 						
@@ -253,10 +250,8 @@ void Eloquent::FileReader::MonitorKQueue() {
 					m_FileStream.close();
 					close( fd );
 					
-					FileRenamed = true;
-					
 				}
-
+				
 			}
 			
 			close( kq );
@@ -266,11 +261,11 @@ void Eloquent::FileReader::MonitorKQueue() {
 			
 		} catch( const std::exception& e ){
 			std::unique_lock<std::mutex> Lock( m_LogMutex );
-			m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::ReadStream() - error - " << e.what() << std::endl;
+			m_Log( Eloquent::LogSeverity::SEV_ERROR ) << TimeAndSpace() << e.what() << " #Error #Reader #FileReader" << std::endl;
 			
 		} catch( ... ) {
 			std::unique_lock<std::mutex> Lock( m_LogMutex );
-			m_Log( Eloquent::LogSeverity::SEV_ERROR ) << "FileReader::MonitorKQueue() - error - unknown exception" << std::endl;
+			m_Log( Eloquent::LogSeverity::SEV_ERROR ) << TimeAndSpace() << "unknown exception #Error #Attention #Reader #FileReader" << std::endl;
 			
 		}
 		
