@@ -6,6 +6,9 @@
 // See LICENSE.txt
 //
 
+// C
+#include <syslog.h>
+
 // C++
 #include <vector>
 #include <string>
@@ -27,8 +30,6 @@ namespace Eloquent {
 		virtual ~FileReaderFactory();
 		
 		virtual IO* New( const boost::property_tree::ptree::value_type& i_Config
-								 , std::mutex& i_LogMutex
-								 , streamlog::severity_log& i_Log
 								 , std::mutex& i_QueueMutex
 								 , std::condition_variable& i_QueueCV
 								 , std::queue<QueueItem>& i_Queue

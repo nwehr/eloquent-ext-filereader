@@ -25,17 +25,17 @@ endif()
 include_directories( "${PROJECT_SOURCE_DIR}/Internal" )
 include_directories( "${PROJECT_SOURCE_DIR}/External" )
 
+include_directories( "/opt/local/include" )
 include_directories( "/usr/include" )
 include_directories( "/usr/local/include" )
-include_directories( "/opt/local/include" )
 include_directories( "/usr/local/include/Eloquent" )
 
 ##############################################################################
 # Library Search Paths
 ##############################################################################
+link_directories( "/opt/local/lib" )
 link_directories( "/usr/lib" )
 link_directories( "/usr/local/lib" )
-link_directories( "/opt/local/lib" )
 
 ##############################################################################
 # Build
@@ -47,7 +47,6 @@ file( GLOB src
 set( lib
 	${Boost_SYSTEM_LIBRARY}
 	${Boost_FILESYSTEM_LIBRARY}
-	streamlog
 	Eloquent
 )
 
