@@ -14,16 +14,16 @@
 #include <stdlib.h>
 #include <ctime>
 
-#if defined( __linux__ )
-	#include <sys/select.h>
-	#include <sys/inotify.h>
-#else
+//#if defined( __linux__ )
+//	#include <sys/select.h>
+//	#include <sys/inotify.h>
+//#else
 	#include <string.h>
 	#include <errno.h>
 
 	#include <sys/event.h>
 	#include <sys/time.h>
-#endif // defined( __linux__ )
+//#endif // defined( __linux__ )
 
 // C++
 #include <fstream>
@@ -102,7 +102,7 @@ namespace Eloquent {
 				// (eg DatagramWriter) to not be able to write any data.
 				while( std::getline( Buffer, Data ) ) {
 					// getline removes the delimiter (in this case "\n"), we need to put it back
-					Data.append( "\n" );
+					// Data.append( "\n" );
 					
 					PushQueueItem( QueueItem( Data, (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
 					
@@ -116,79 +116,76 @@ namespace Eloquent {
 			
 		}
 		
-		void MonitorINotify() {
-#if defined( __linux__ )
-			try {
-				int fd = inotify_init();
-				int dwd = inotify_add_watch( fd, m_FilePath.parent_path().string().c_str(), IN_CREATE );
-				int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
-				
-				bool FileRenamed( false );
-				
-				while( true ){
-					char Buffer[4096];
-					
-					int NumEvents = read( fd, Buffer, sizeof( Buffer ) );
-					
-					for( int i = 0; i < NumEvents; ++i ) {
-						struct inotify_event* Event = (inotify_event*)( &Buffer[i] );
-						
-						if( Event->mask & IN_MODIFY ) {
-							ReadStream();
-							
-						} else if( Event->mask & IN_MOVE_SELF ) {
-							if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-								if( !FileRenamed ) {
-									inotify_rm_watch( fd, fwd );
-									m_FileStream.close();
-									FileRenamed = true;
-									
-								}
-								
-							}
-							
-						} else if( Event->mask & IN_CREATE ) {
-							if( FileRenamed ) {
-								if( std::string( Event->name ) == m_FilePath.filename() ) {
-									fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
-									
-									m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
-									m_FileStream.seekg( 0, m_FileStream.beg );
-									m_Pos = m_FileStream.tellg();
-									
-									FileRenamed = false;
-									
-								}
-								
-							}
-							
-						}
-						
-					}
-					
-				}
-				
-				close( dwd );
-				close( fwd );
-				close( fd );
-				
-				if( m_FileStream.is_open() )
-					m_FileStream.close();
-				
-			} catch( const std::exception& e ){
-				syslog( LOG_ERR, "%s #Error #Attention #Reader #FileReader", e.what() );
-			} catch( ... ) {
-				syslog( LOG_ERR, "unknown exception #Error #Attention #Reader #FileReader" );
-			}
-			
-#endif
-
-		}
+//		void MonitorINotify() {
+//#if defined( __linux__ )
+//			try {
+//				int fd = inotify_init();
+//				int dwd = inotify_add_watch( fd, m_FilePath.parent_path().string().c_str(), IN_CREATE );
+//				int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
+//				
+//				bool FileRenamed( false );
+//				
+//				while( true ){
+//					char Buffer[4096];
+//					
+//					int NumEvents = read( fd, Buffer, sizeof( Buffer ) );
+//					
+//					for( int i = 0; i < NumEvents; ++i ) {
+//						struct inotify_event* Event = (inotify_event*)( &Buffer[i] );
+//						
+//						if( Event->mask & IN_MODIFY ) {
+//							ReadStream();
+//							
+//						} else if( Event->mask & IN_MOVE_SELF ) {
+//							if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+//								if( !FileRenamed ) {
+//									inotify_rm_watch( fd, fwd );
+//									m_FileStream.close();
+//									FileRenamed = true;
+//									
+//								}
+//								
+//							}
+//							
+//						} else if( Event->mask & IN_CREATE ) {
+//							if( FileRenamed ) {
+//								if( std::string( Event->name ) == m_FilePath.filename() ) {
+//									fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
+//									
+//									m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
+//									m_FileStream.seekg( 0, m_FileStream.beg );
+//									m_Pos = m_FileStream.tellg();
+//									
+//									FileRenamed = false;
+//									
+//								}
+//								
+//							}
+//							
+//						}
+//						
+//					}
+//					
+//				}
+//				
+//				close( dwd );
+//				close( fwd );
+//				close( fd );
+//				
+//				if( m_FileStream.is_open() )
+//					m_FileStream.close();
+//				
+//			} catch( const std::exception& e ){
+//				syslog( LOG_ERR, "%s #Error #Attention #Reader #FileReader", e.what() );
+//			} catch( ... ) {
+//				syslog( LOG_ERR, "unknown exception #Error #Attention #Reader #FileReader" );
+//			}
+//			
+//#endif
+//
+//		}
 		
 		void MonitorKQueue() {
-#if !defined( __linux__ )
-			int NumEvents = 0;
-			
 			while( true ) {
 				try {
 					int kq
@@ -257,15 +254,10 @@ namespace Eloquent {
 				
 			}
 			
-#endif
 		}
 		
 		virtual void operator()() {
-#if defined( __linux__ )
-			MonitorINotify();
-#else
 			MonitorKQueue();
-#endif
 		}
 
 	private:
