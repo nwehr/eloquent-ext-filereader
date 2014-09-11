@@ -29,6 +29,7 @@ include_directories( ${Boost_INCLUDE_DIRS} )
 
 include_directories( "/opt/local/include" )
 include_directories( "/usr/include" )
+include_directories( "/usr/include/kqueue" )
 include_directories( "/usr/local/include" )
 include_directories( "/usr/local/include/Eloquent" )
 
