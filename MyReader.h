@@ -218,6 +218,7 @@ namespace Eloquent {
 								if( (ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL )) > 0 ) {
 									if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
 										ReadStream();
+										continue;
 									}
 									
 									if( EventList.fflags & NOTE_RENAME ) {
