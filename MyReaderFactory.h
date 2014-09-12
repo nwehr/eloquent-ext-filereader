@@ -35,7 +35,6 @@ namespace Eloquent {
 						, std::queue<QueueItem>& i_Queue
 						, unsigned int& i_NumWriters )
 		{
-			syslog( LOG_DEBUG, "returning new reader #FileReaderFactory::New #Debug" );
 			return new FileReader( i_Config, i_QueueMutex, i_QueueCV, i_Queue, i_NumWriters );
 		}
 		

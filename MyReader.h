@@ -14,16 +14,18 @@
 #include <stdlib.h>
 #include <ctime>
 
-//#if defined( __linux__ )
-//	#include <sys/select.h>
-//	#include <sys/inotify.h>
-//#else
-	#include <string.h>
-	#include <errno.h>
+#ifdef __linux__
+#include <sys/select.h>
+#include <sys/inotify.h>
+#include <limits.h>
 
-	#include <sys/event.h>
-	#include <sys/time.h>
-//#endif // defined( __linux__ )
+#else
+#include <string.h>
+#include <errno.h>
+#include <sys/event.h>
+#include <sys/time.h>
+
+#endif // defined( __linux__ )
 
 // C++
 #include <fstream>
@@ -56,14 +58,9 @@ namespace Eloquent {
 		{
 			m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::binary | std::ifstream::ate );
 			m_Pos = m_FileStream.tellg();
-			
-			syslog( LOG_INFO, "setting up a reader for %s #Comment #Filesystem #Reader #FileReader", m_FilePath.string().c_str() );
-			
 		}
 
-		virtual ~FileReader() {
-			syslog( LOG_INFO, "shutting down a reader for %s #Comment #Filesystem #Reader #FileReader", m_FilePath.string().c_str() );
-		}
+		virtual ~FileReader() {}
 		
 		void ReadStream() {
 			try {
@@ -119,6 +116,65 @@ namespace Eloquent {
 		
 		virtual void operator()() {
 			try {
+#ifdef __linux__
+				while( true ) {
+					// No point in tailing a file that doesn't exist...
+					if( !boost::filesystem::exists( m_FilePath.string().data() ) ) {
+						throw std::runtime_error( "file does not exist" );
+					}
+					
+					// File descriptor for inotify
+					int fd = inotify_init();
+					
+					if( fd == -1 ) {
+						syslog( LOG_ERR, "unable to setup inotify #Error #FileReader::operator()()" );
+						throw std::runtime_error( "unable to setup inotify" );
+					}
+					
+					// Watch descriptor for an item we want to get events from
+					int wd = inotify_add_watch( fd, m_FilePath.string().data(), IN_MODIFY | IN_MOVE_SELF );
+					
+					if( wd == -1 ) {
+						syslog( LOG_ERR, "unable to setup inotify #Error #FileReader::operator()()" );
+						throw std::runtime_error( "unable to setup inotify" );
+					}
+					
+					// Set up a buffer to put events into
+					const unsigned int BUFFER_LEN = (10* sizeof( struct inotify_event) + NAME_MAX + 1);
+					inotify_event BUFFER[BUFFER_LEN];
+					
+					bool FileDidMove = false;
+					
+					while( !FileDidMove ) {
+						ssize_t BytesRead = read( fd, BUFFER, BUFFER_LEN );
+						
+						// If we run into an error, break out of this loop and set everything up again
+						if( BytesRead == -1 ) {
+							syslog( LOG_ERR, "unable to read inotify event #Error #FileReader::operator()()" );
+							break;
+						}
+						
+						// Loop through our events and determine if the file was modified or moved
+						for( struct inotify_event* Event = BUFFER; Event < BUFFER + BytesRead; ) {
+							if( Event->mask & IN_MOVE_SELF ) {
+								FileDidMove = true;
+								break;
+							}
+							
+							if( Event->mask & IN_MODIFY ) {
+								ReadStream();
+							}
+							
+							Event += sizeof(struct inotify_event) + Event->len;
+							
+						}
+						
+					}
+					
+					sleep( 3 );
+					
+				}
+#else
 				while( true ) {
 					// No point in tailing a file that doesn't exist...
 					if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
@@ -164,14 +220,12 @@ namespace Eloquent {
 							
 						}
 						
-						if( EvList->fflags & NOTE_WRITE || EvList->fflags & NOTE_EXTEND ) {
-							std::cout << "Extended" << std::endl;
-							ReadStream();
+						if( EvList->fflags & NOTE_RENAME ) {
+							break;
 						}
 						
-						if( EvList->fflags & NOTE_RENAME ) {
-							std::cout << "Renamed" << std::endl;
-							break;
+						if( EvList->fflags & NOTE_WRITE || EvList->fflags & NOTE_EXTEND ) {
+							ReadStream();
 						}
 						
 					}
@@ -185,10 +239,10 @@ namespace Eloquent {
 					sleep( 3 );
 					
 				}
+#endif
 				
 			} catch( const std::exception& e ){
 				syslog( LOG_ERR, "%s #Error #Reader #FileReader", e.what() );
-				
 			} catch( ... ) {
 				syslog( LOG_ERR, "unknown exception #Error #Attention #Reader #FileReader" );
 			}
