@@ -27,6 +27,7 @@
 
 // C++
 #include <fstream>
+#include <iostream>
 
 // Boost
 #include <boost/filesystem.hpp>
@@ -116,149 +117,82 @@ namespace Eloquent {
 			
 		}
 		
-//		void MonitorINotify() {
-//#if defined( __linux__ )
-//			try {
-//				int fd = inotify_init();
-//				int dwd = inotify_add_watch( fd, m_FilePath.parent_path().string().c_str(), IN_CREATE );
-//				int fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
-//				
-//				bool FileRenamed( false );
-//				
-//				while( true ){
-//					char Buffer[4096];
-//					
-//					int NumEvents = read( fd, Buffer, sizeof( Buffer ) );
-//					
-//					for( int i = 0; i < NumEvents; ++i ) {
-//						struct inotify_event* Event = (inotify_event*)( &Buffer[i] );
-//						
-//						if( Event->mask & IN_MODIFY ) {
-//							ReadStream();
-//							
-//						} else if( Event->mask & IN_MOVE_SELF ) {
-//							if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-//								if( !FileRenamed ) {
-//									inotify_rm_watch( fd, fwd );
-//									m_FileStream.close();
-//									FileRenamed = true;
-//									
-//								}
-//								
-//							}
-//							
-//						} else if( Event->mask & IN_CREATE ) {
-//							if( FileRenamed ) {
-//								if( std::string( Event->name ) == m_FilePath.filename() ) {
-//									fwd = inotify_add_watch( fd, m_FilePath.string().c_str(), IN_MODIFY | IN_MOVE_SELF );
-//									
-//									m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
-//									m_FileStream.seekg( 0, m_FileStream.beg );
-//									m_Pos = m_FileStream.tellg();
-//									
-//									FileRenamed = false;
-//									
-//								}
-//								
-//							}
-//							
-//						}
-//						
-//					}
-//					
-//				}
-//				
-//				close( dwd );
-//				close( fwd );
-//				close( fd );
-//				
-//				if( m_FileStream.is_open() )
-//					m_FileStream.close();
-//				
-//			} catch( const std::exception& e ){
-//				syslog( LOG_ERR, "%s #Error #Attention #Reader #FileReader", e.what() );
-//			} catch( ... ) {
-//				syslog( LOG_ERR, "unknown exception #Error #Attention #Reader #FileReader" );
-//			}
-//			
-//#endif
-//
-//		}
-		
-		void MonitorKQueue() {
-			while( true ) {
-				try {
-					int kq
-					, ev;
+		virtual void operator()() {
+			try {
+				while( true ) {
+					// No point in tailing a file that doesn't exist...
+					if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+						throw std::runtime_error( "file does not exist" );
+					}
 					
-					struct kevent ChangeList
-					, EventList;
+					// Create a file descriptor for kqueue
+					int fd = open( m_FilePath.string().data(), O_RDONLY );
+					int kq = kqueue();
 					
-					kq = kqueue();
-					
-					bool Renamed = false;
-					
-					while( true ) {
-						if( boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
+					while( true ){
+						// The events we're going to get
+						int NumEvents = 1;
+						struct kevent EvList[NumEvents];
+						
+						
+						// The events that we're looking for
+						int NumChanges = 1;
+						struct kevent ChList[NumChanges];
+						
+						// Configure our event tracking
+						{
+							int Filter	= EVFILT_VNODE;
+							int Flags	= EV_ADD | EV_ENABLE | EV_ONESHOT;
+							int FFlags	= NOTE_WRITE | NOTE_EXTEND | NOTE_RENAME;
+							long Data	= 0;
+							void* UData	= 0;
 							
-							if( Renamed ) {
-								m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::in );
-								
-								m_Pos = m_FileStream.tellg();
-								
-								Renamed = false;
-								
+							// Populate ChList with the correct values
+							EV_SET( ChList, fd, Filter, Flags, FFlags, Data, UData );
+							
+						}
+						
+						// Wait for new events
+						int NumOccured = kevent( kq, ChList, NumChanges, EvList, NumEvents, NULL );
+						
+						// Zero events occured
+						if( NumOccured < 1 ) {
+							if( EvList->flags & EV_ERROR || NumOccured == -1 ) {
+								std::cout << strerror( errno ) << std::endl;
+								continue;
 							}
 							
-							int fd = open( m_FilePath.string().data(), O_RDONLY );
-							
-							EV_SET( &ChangeList, fd, EVFILT_VNODE, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_EXTEND | NOTE_WRITE | NOTE_RENAME, 0, 0 );
-							
-							while( true ){
-								if( (ev = kevent( kq, &ChangeList, 1, &EventList, 1, NULL )) > 0 ) {
-									if( EventList.fflags & NOTE_WRITE || EventList.fflags & NOTE_EXTEND ) {
-										ReadStream();
-										continue;
-									}
-									
-									if( EventList.fflags & NOTE_RENAME ) {
-										syslog( LOG_INFO, "%s renamed, assumed rotation #Comment #Reader #FileReader", m_FilePath.string().c_str() );
-										Renamed = true;
-										break;
-										
-									}
-									
-								} else {
-									syslog( LOG_ERR, "%s #Error #Reader #FileReader", strerror( errno ) );
-								}
-								
-							}
-							
-							m_FileStream.close();
-							close( fd );
-							
+						}
+						
+						if( EvList->fflags & NOTE_WRITE || EvList->fflags & NOTE_EXTEND ) {
+							std::cout << "Extended" << std::endl;
+							ReadStream();
+						}
+						
+						if( EvList->fflags & NOTE_RENAME ) {
+							std::cout << "Renamed" << std::endl;
+							break;
 						}
 						
 					}
 					
+					close( fd );
 					close( kq );
 					
 					if( m_FileStream.is_open() )
 						m_FileStream.close();
 					
-				} catch( const std::exception& e ){
-					syslog( LOG_ERR, "%s #Error #Reader #FileReader", e.what() );
+					sleep( 3 );
 					
-				} catch( ... ) {
-					syslog( LOG_ERR, "unknown exception #Error #Attention #Reader #FileReader" );
 				}
 				
+			} catch( const std::exception& e ){
+				syslog( LOG_ERR, "%s #Error #Reader #FileReader", e.what() );
+				
+			} catch( ... ) {
+				syslog( LOG_ERR, "unknown exception #Error #Attention #Reader #FileReader" );
 			}
 			
-		}
-		
-		virtual void operator()() {
-			MonitorKQueue();
 		}
 
 	private:
