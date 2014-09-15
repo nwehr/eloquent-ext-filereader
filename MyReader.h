@@ -55,6 +55,7 @@ namespace Eloquent {
 		, m_FilePath( m_Config.second.get<std::string>( "path" ) )
 		, m_FileStream()
 		, m_Pos()
+		, m_FileMoved( false )
 		{
 			m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::binary | std::ifstream::ate );
 			m_Pos = m_FileStream.tellg();
@@ -64,10 +65,26 @@ namespace Eloquent {
 		
 		void ReadStream() {
 			try {
-				// Reopen the file stream if necessary and move m_Pos to the end of the file
-				if( !m_FileStream.is_open() ){
-					m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::binary | std::ifstream::ate );
+				// Reopen the file stream if necessary
+				if( !m_FileStream.is_open() ) {
+					std::ifstream::openmode Mode = std::ifstream::binary;
+					
+					if( m_FileMoved ) {
+						// Set the open mode to the beginning if the file was rotated...
+						Mode | std::ifstream::beg;
+						
+						// Reset the FileMoved sentinal...
+						m_FileMoved = false;
+						
+					} else {
+						// Set the open mode to the end of the file...
+						Mode | std::ifstream::ate;
+					}
+					
+					m_FileStream.open( m_FilePath.string().c_str(), Mode );
+					
 					m_Pos = m_FileStream.tellg();
+					
 				}
 				
 				// Seek to the last recorded file position
@@ -99,13 +116,10 @@ namespace Eloquent {
 				// Break buffered data up into lines. Huge queue items can cause network-based writers
 				// (eg DatagramWriter) to not be able to write any data.
 				while( std::getline( Buffer, Data ) ) {
-					// getline removes the delimiter (in this case "\n"), we need to put it back
-					// Data.append( "\n" );
-					
 					PushQueueItem( QueueItem( Data, (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
 					
+					// Empty the data string so we can write to it again if needed
 					Data.clear();
-					
 				}
 				
 			} catch( const std::exception& e ){
@@ -118,34 +132,33 @@ namespace Eloquent {
 			try {
 #ifdef __linux__
 				while( true ) {
-					// No point in tailing a file that doesn't exist...
-					if( !boost::filesystem::exists( m_FilePath.string().data() ) ) {
-						throw std::runtime_error( "file does not exist" );
+					// See if our file exists. If not, wait for it to exist (newly rotated logs aren't necessarily recreated right away)
+					while( !boost::filesystem::exists( m_FilePath.string().data() ) ) {
+						syslog( LOG_ERR, "%s does not exist #Error #FileReader::operator()()", m_FilePath.string().data() );
+						sleep( 60 );
 					}
 					
 					// File descriptor for inotify
 					int fd = inotify_init();
 					
 					if( fd == -1 ) {
-						syslog( LOG_ERR, "unable to setup inotify #Error #FileReader::operator()()" );
-						throw std::runtime_error( "unable to setup inotify" );
+						syslog( LOG_ERR, "unable to setup file descriptor inotify #Error #FileReader::operator()()" );
 					}
 					
 					// Watch descriptor for an item we want to get events from
-					int wd = inotify_add_watch( fd, m_FilePath.string().data(), IN_MODIFY | IN_MOVE_SELF );
+					int wd = inotify_add_watch( fd, m_FilePath.string().data(), IN_ALL_EVENTS );
 					
 					if( wd == -1 ) {
-						syslog( LOG_ERR, "unable to setup inotify #Error #FileReader::operator()()" );
-						throw std::runtime_error( "unable to setup inotify" );
+						syslog( LOG_ERR, "unable to setup watch descriptor inotify #Error #FileReader::operator()()" );
 					}
 					
 					// Set up a buffer to put events into
-					const unsigned int BUFFER_LEN = (10* sizeof( struct inotify_event) + NAME_MAX + 1);
-					inotify_event BUFFER[BUFFER_LEN];
+					const unsigned int BUFFER_LEN	= (10* sizeof( struct inotify_event) + NAME_MAX + 1);
+					char BUFFER[BUFFER_LEN]			= { "" };
 					
-					bool FileDidMove = false;
+					bool ContinueWhile = true;
 					
-					while( !FileDidMove ) {
+					while( ContinueWhile ) {
 						ssize_t BytesRead = read( fd, BUFFER, BUFFER_LEN );
 						
 						// If we run into an error, break out of this loop and set everything up again
@@ -155,30 +168,43 @@ namespace Eloquent {
 						}
 						
 						// Loop through our events and determine if the file was modified or moved
-						for( struct inotify_event* Event = BUFFER; Event < BUFFER + BytesRead; ) {
+						for( char* p = BUFFER; p < BUFFER + BytesRead; ) {
+							struct inotify_event* Event = reinterpret_cast<struct inotify_event*>( p );
+							
 							if( Event->mask & IN_MOVE_SELF ) {
-								FileDidMove = true;
+								// Break out of the while loop
+								ContinueWhile	= false;
+								
+								// Set the FileMoved sentinal
+								m_FileMoved		= true;
+								
+								// Break out of the for loop
 								break;
+								
 							}
 							
 							if( Event->mask & IN_MODIFY ) {
+								// Read data
 								ReadStream();
 							}
 							
-							Event += sizeof(struct inotify_event) + Event->len;
+							p += sizeof(struct inotify_event) + Event->len;
 							
 						}
 						
 					}
 					
-					sleep( 3 );
+					// Close file stream
+					if( m_FileStream.is_open() )
+						m_FileStream.close();
 					
 				}
 #else
 				while( true ) {
-					// No point in tailing a file that doesn't exist...
-					if( !boost::filesystem::exists( m_FilePath.string().c_str() ) ) {
-						throw std::runtime_error( "file does not exist" );
+					// See if our file exists. If not, wait for it to exist (newly rotated logs aren't necessarily recreated right away)
+					while( !boost::filesystem::exists( m_FilePath.string().data() ) ) {
+						syslog( LOG_ERR, "%s does not exist #Error #FileReader::operator()()", m_FilePath.string().data() );
+						sleep( 60 );
 					}
 					
 					// Create a file descriptor for kqueue
@@ -221,7 +247,12 @@ namespace Eloquent {
 						}
 						
 						if( EvList->fflags & NOTE_RENAME ) {
+							// Set the FileMoved sentinal
+							m_FileMoved = true;
+							
+							// Break out of the while loop
 							break;
+							
 						}
 						
 						if( EvList->fflags & NOTE_WRITE || EvList->fflags & NOTE_EXTEND ) {
@@ -235,8 +266,6 @@ namespace Eloquent {
 					
 					if( m_FileStream.is_open() )
 						m_FileStream.close();
-					
-					sleep( 3 );
 					
 				}
 #endif
@@ -255,6 +284,8 @@ namespace Eloquent {
 		std::ifstream 			m_FileStream;
 		
 		std::streampos			m_Pos;
+		
+		bool m_FileMoved;
 		
 	};
 
