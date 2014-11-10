@@ -44,7 +44,7 @@ link_directories( "/usr/local/lib" )
 # Build
 ##############################################################################
 file( GLOB src
-	"${PROJECT_SOURCE_DIR}/Attach.cpp"
+	"${PROJECT_SOURCE_DIR}/*.cpp"
 )
 
 set( lib

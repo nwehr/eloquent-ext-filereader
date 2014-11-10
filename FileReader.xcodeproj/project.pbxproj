@@ -7,18 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		58D1901D19B952DC00BA525B /* Attach.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58D18FF219B952DC00BA525B /* Attach.cpp */; };
-		58D1902319B952DC00BA525B /* MyReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 58D1901B19B952DC00BA525B /* MyReader.h */; };
-		58D1902419B952DC00BA525B /* MyReaderFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = 58D1901C19B952DC00BA525B /* MyReaderFactory.h */; };
+		58D1901D19B952DC00BA525B /* FileReaderAttach.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58D18FF219B952DC00BA525B /* FileReaderAttach.cpp */; };
+		58D1902319B952DC00BA525B /* FileReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 58D1901B19B952DC00BA525B /* FileReader.h */; };
+		58D1902419B952DC00BA525B /* FileReaderFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = 58D1901C19B952DC00BA525B /* FileReaderFactory.h */; };
+		58D7ECF319F93AE100B9EC3E /* FileReader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58D7ECF219F93AE100B9EC3E /* FileReader.cpp */; };
+		58D7ECF519F93B8C00B9EC3E /* FileReaderFactory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58D7ECF419F93B8C00B9EC3E /* FileReaderFactory.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		58D18FE419B952AA00BA525B /* libFileReader.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libFileReader.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		58D18FF219B952DC00BA525B /* Attach.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Attach.cpp; sourceTree = "<group>"; };
+		58D18FF219B952DC00BA525B /* FileReaderAttach.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FileReaderAttach.cpp; sourceTree = "<group>"; };
 		58D1901919B952DC00BA525B /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		58D1901A19B952DC00BA525B /* LICENSE.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
-		58D1901B19B952DC00BA525B /* MyReader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MyReader.h; sourceTree = "<group>"; };
-		58D1901C19B952DC00BA525B /* MyReaderFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MyReaderFactory.h; sourceTree = "<group>"; };
+		58D1901B19B952DC00BA525B /* FileReader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FileReader.h; sourceTree = "<group>"; };
+		58D1901C19B952DC00BA525B /* FileReaderFactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FileReaderFactory.h; sourceTree = "<group>"; };
+		58D7ECF219F93AE100B9EC3E /* FileReader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FileReader.cpp; sourceTree = "<group>"; };
+		58D7ECF419F93B8C00B9EC3E /* FileReaderFactory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FileReaderFactory.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,9 +55,11 @@
 		58D18FF119B952D400BA525B /* FileReader */ = {
 			isa = PBXGroup;
 			children = (
-				58D1901B19B952DC00BA525B /* MyReader.h */,
-				58D1901C19B952DC00BA525B /* MyReaderFactory.h */,
-				58D18FF219B952DC00BA525B /* Attach.cpp */,
+				58D1901B19B952DC00BA525B /* FileReader.h */,
+				58D7ECF219F93AE100B9EC3E /* FileReader.cpp */,
+				58D1901C19B952DC00BA525B /* FileReaderFactory.h */,
+				58D7ECF419F93B8C00B9EC3E /* FileReaderFactory.cpp */,
+				58D18FF219B952DC00BA525B /* FileReaderAttach.cpp */,
 				58D1901A19B952DC00BA525B /* LICENSE.txt */,
 				58D1901919B952DC00BA525B /* CMakeLists.txt */,
 			);
@@ -67,8 +73,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				58D1902419B952DC00BA525B /* MyReaderFactory.h in Headers */,
-				58D1902319B952DC00BA525B /* MyReader.h in Headers */,
+				58D1902419B952DC00BA525B /* FileReaderFactory.h in Headers */,
+				58D1902319B952DC00BA525B /* FileReader.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -128,7 +134,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				58D1901D19B952DC00BA525B /* Attach.cpp in Sources */,
+				58D7ECF319F93AE100B9EC3E /* FileReader.cpp in Sources */,
+				58D7ECF519F93B8C00B9EC3E /* FileReaderFactory.cpp in Sources */,
+				58D1901D19B952DC00BA525B /* FileReaderAttach.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
