@@ -11,11 +11,7 @@ set( Boost_USE_STATIC_RUNTIME	OFF )
 
 find_package( Boost 1.55.0 COMPONENTS system filesystem  )
 
-set( CMAKE_CXX_FLAGS                "-Wall -std=c++11" )
-set( CMAKE_CXX_FLAGS_DEBUG          "-g" )
-set( CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG" )
-set( CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG" )
-set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g" )
+set( CMAKE_CXX_FLAGS "-O0 -g -Wall -std=c++11" )
 
 set( target FileReader )
 
