@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5876E9541AB35E2600211BBB /* efsw.h in Headers */ = {isa = PBXBuildFile; fileRef = 5876E9521AB35E2600211BBB /* efsw.h */; };
+		5876E9551AB35E2600211BBB /* efsw.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5876E9531AB35E2600211BBB /* efsw.hpp */; };
 		58D1901D19B952DC00BA525B /* FileReaderAttach.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 58D18FF219B952DC00BA525B /* FileReaderAttach.cpp */; };
 		58D1902319B952DC00BA525B /* FileReader.h in Headers */ = {isa = PBXBuildFile; fileRef = 58D1901B19B952DC00BA525B /* FileReader.h */; };
 		58D1902419B952DC00BA525B /* FileReaderFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = 58D1901C19B952DC00BA525B /* FileReaderFactory.h */; };
@@ -15,6 +17,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5876E9521AB35E2600211BBB /* efsw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = efsw.h; sourceTree = "<group>"; };
+		5876E9531AB35E2600211BBB /* efsw.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = efsw.hpp; sourceTree = "<group>"; };
 		58D18FE419B952AA00BA525B /* libFileReader.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libFileReader.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		58D18FF219B952DC00BA525B /* FileReaderAttach.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FileReaderAttach.cpp; sourceTree = "<group>"; };
 		58D1901919B952DC00BA525B /* CMakeLists.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
@@ -36,9 +40,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5876E9511AB35E2600211BBB /* efsw */ = {
+			isa = PBXGroup;
+			children = (
+				5876E9521AB35E2600211BBB /* efsw.h */,
+				5876E9531AB35E2600211BBB /* efsw.hpp */,
+			);
+			name = efsw;
+			path = ../../../../../../../../usr/local/include/efsw;
+			sourceTree = "<group>";
+		};
 		58D18FDB19B952AA00BA525B = {
 			isa = PBXGroup;
 			children = (
+				5876E9511AB35E2600211BBB /* efsw */,
 				58D18FF119B952D400BA525B /* FileReader */,
 				58D18FE519B952AA00BA525B /* Products */,
 			);
@@ -73,8 +88,10 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5876E9541AB35E2600211BBB /* efsw.h in Headers */,
 				58D1902419B952DC00BA525B /* FileReaderFactory.h in Headers */,
 				58D1902319B952DC00BA525B /* FileReader.h in Headers */,
+				5876E9551AB35E2600211BBB /* efsw.hpp in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

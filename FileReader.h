@@ -65,8 +65,8 @@ namespace Eloquent {
 		
 		std::streampos			m_Pos;
 		
-		bool m_FileMoved;
-		
+		bool m_RestartFileStream;
+		bool m_RestartEventLoop;
 	};
 
 }

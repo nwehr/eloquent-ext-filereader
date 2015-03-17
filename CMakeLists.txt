@@ -47,7 +47,7 @@ set( lib
 	${Boost_SYSTEM_LIBRARY}
 	${Boost_FILESYSTEM_LIBRARY}
 	Eloquent
-)
+}
 
 add_library( ${target} SHARED ${src} )
 target_link_libraries( ${target} ${lib} )
