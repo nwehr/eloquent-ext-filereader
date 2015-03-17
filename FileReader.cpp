@@ -36,8 +36,6 @@ void Eloquent::FileReader::ReadStream()
 	try {
 		m_FileStream.open( m_FilePath.string().c_str(), std::ifstream::binary );
 		
-		// syslog(LOG_DEBUG, "opened file #Debug #Reader #FileReader");
-		
 		// reposition to the beginning
 		if( m_RestartFileStream ) {
 			m_RestartFileStream = false;
@@ -56,7 +54,6 @@ void Eloquent::FileReader::ReadStream()
 				
 				syslog(LOG_DEBUG, "file rotated #Debug #Reader #FileReader");
 				
-				// kind of hacked up...
 				ReadStream();
 				
 				return;
@@ -65,8 +62,6 @@ void Eloquent::FileReader::ReadStream()
 		} else {
 			m_FileStream.seekg( 0, m_FileStream.end );
 			m_Pos = m_FileStream.tellg();
-			
-			// syslog(LOG_DEBUG, "reading from end #Debug #Reader #FileReader");
 		}
 		
 		// TODO: not sure if this is needed anymore... also not sure if its even correct...
@@ -98,15 +93,11 @@ void Eloquent::FileReader::ReadStream()
 		while( std::getline( Buffer, Data ) ) {
 			PushQueueItem( QueueItem( Data, (m_SetOrigin.is_initialized() ? *m_SetOrigin : m_FilePath.string()) ) );
 			
-			// syslog(LOG_DEBUG, "pushed item to core #Debug #Reader #FileReader");
-			
 			// Empty the data string so we can write to it again if needed
 			Data.clear();
 		}
 		
 		m_FileStream.close();
-		
-		// syslog(LOG_DEBUG, "closed file #Debug #Reader #FileReader");
 		
 	} catch( const std::exception& e ){
 		syslog(LOG_ERR, "%s #Error #Attention #Reader #FileReader", e.what());
@@ -234,7 +225,6 @@ void Eloquent::FileReader::operator()()
 				
 				if( NumOccured == -1 ) {
 					syslog(LOG_ERR, "kqueue error for %s #Error #Reader #FileReader", m_FilePath.string().c_str());
-					
 				} else if( NumOccured > 0 ) {
 					// syslog(LOG_DEBUG, "%d kqueue event(s) for %s #Debug #Reader #FileReader", NumOccured, m_FilePath.string().c_str());
 					
@@ -249,7 +239,6 @@ void Eloquent::FileReader::operator()()
 						}
 						
 						if( EvList[i].fflags & NOTE_WRITE ) {
-							// syslog(LOG_DEBUG, "wrote to %s #Debug #Reader #NOTE_WRITE #FileReader", m_FilePath.string().c_str());
 							ReadStream();
 						}
 					}
@@ -258,8 +247,6 @@ void Eloquent::FileReader::operator()()
 			
 			close( fd );
 			close( kq );
-			
-			// syslog(LOG_DEBUG, "closed %s #Info #Reader #FileReader", m_FilePath.string().data());
 		}
 #endif
 		
